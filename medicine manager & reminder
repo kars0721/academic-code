@@ -1,0 +1,153 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_MEDS 50
+#define FILE_NAME "inventory.txt"
+
+typedef struct {
+    char name[50];
+    int quantity;
+    int threshold;
+} Medicine;
+
+Medicine inventory[MAX_MEDS];
+int med_count = 0;
+
+// Load data from file on startup
+void loadFromFile() {
+    FILE *fp = fopen(FILE_NAME, "r");
+    if (fp == NULL) return; // File doesn't exist yet, start empty
+
+    med_count = 0;
+    while (fscanf(fp, "%49s %d %d", inventory[med_count].name, 
+                  &inventory[med_count].quantity, 
+                  &inventory[med_count].threshold) == 3) {
+        med_count++;
+        if (med_count >= MAX_MEDS) break;
+    }
+    fclose(fp);
+}
+
+// Save current list to file
+void saveToFile() {
+    FILE *fp = fopen(FILE_NAME, "w");
+    if (fp == NULL) {
+        printf("Error: Could not save data.\n");
+        return;
+    }
+    for (int i = 0; i < med_count; i++) {
+        fprintf(fp, "%s %d %d\n", inventory[i].name, 
+                inventory[i].quantity, inventory[i].threshold);
+    }
+    fclose(fp);
+}
+
+// Add a new medicine
+void addMedicine() {
+    if (med_count >= MAX_MEDS) {
+        printf("\nInventory full! Cannot add more.\n");
+        return;
+    }
+
+    printf("\nEnter medicine name (no spaces): ");
+    scanf("%49s", inventory[med_count].name);
+    printf("Enter current quantity: ");
+    scanf("%d", &inventory[med_count].quantity);
+    printf("Enter low-stock alert threshold: ");
+    scanf("%d", &inventory[med_count].threshold);
+
+    med_count++;
+    saveToFile();
+    printf("Medicine added and saved successfully.\n");
+}
+
+// View inventory and low-stock warnings
+void viewInventory() {
+    if (med_count == 0) {
+        printf("\nNo medicines logged yet.\n");
+        return;
+    }
+
+    printf("\n%-20s %-12s %-10s %-15s\n", "Medicine", "Quantity", "Threshold", "Status");
+    printf("------------------------------------------------------------\n");
+
+    for (int i = 0; i < med_count; i++) {
+        char status[20] = "OK";
+        if (inventory[i].quantity <= 0) {
+            strcpy(status, "OUT OF STOCK");
+        } else if (inventory[i].quantity <= inventory[i].threshold) {
+            strcpy(status, "LOW STOCK!");
+        }
+
+        printf("%-20s %-12d %-10d %-15s\n", 
+               inventory[i].name, 
+               inventory[i].quantity, 
+               inventory[i].threshold, 
+               status);
+    }
+}
+
+// Log a taken dose
+void recordDose() {
+    if (med_count == 0) {
+        printf("\nInventory is empty.\n");
+        return;
+    }
+
+    char target[50];
+    printf("\nEnter medicine name to record dose: ");
+    scanf("%49s", target);
+
+    int found = 0;
+    for (int i = 0; i < med_count; i++) {
+        if (strcmp(inventory[i].name, target) == 0) {
+            found = 1;
+            if (inventory[i].quantity > 0) {
+                inventory[i].quantity--;
+                saveToFile();
+                printf("Dose recorded! Remaining pills of %s: %d\n", 
+                       inventory[i].name, inventory[i].quantity);
+
+                if (inventory[i].quantity <= inventory[i].threshold) {
+                    printf("[ALERT] %s is now at or below threshold! Buy refill soon.\n", 
+                           inventory[i].name);
+                }
+            } else {
+                printf("[ERROR] %s is completely out of stock!\n", inventory[i].name);
+            }
+            break;
+        }
+    }
+
+    if (!found) {
+        printf("Medicine '%s' not found in records.\n", target);
+    }
+}
+
+int main() {
+    loadFromFile();
+    int choice;
+
+    do {
+        printf("\n=============================\n");
+        printf("     MEDICINE INVENTORY      \n");
+        printf("=============================\n");
+        printf("1. View Current Inventory\n");
+        printf("2. Take / Record a Dose\n");
+        printf("3. Add New Medicine\n");
+        printf("4. Exit\n");
+        printf("Enter choice (1-4): ");
+        if (scanf("%d", &choice) != 1) break;
+
+        switch (choice) {
+            case 1: viewInventory(); break;
+            case 2: recordDose(); break;
+            case 3: addMedicine(); break;
+            case 4: printf("\nExiting. Stay healthy!\n"); break;
+            default: printf("\nInvalid choice. Try again.\n");
+        }
+    } while (choice != 4);
+
+    return 0;
+}
